@@ -209,6 +209,19 @@ private[spark] class Executor(
     @volatile var task: Task[Any] = _
 
     def kill(interruptThread: Boolean): Unit = {
+
+      /**
+       * Use java reflection to create instance of GetThreadID, which uses Java Native
+       * Interface to determine the native thread ID of the current task
+       * TODO: Refactor
+       */
+
+      val cls = Utils.classForName("GetThreadID")
+      val obj = cls.newInstance()
+      val method = cls.getDeclaredMethod("get_tid")
+      val taskNID = method.invoke(obj)
+      println(s"Killing $taskNID")
+
       logInfo(s"Executor is trying to kill $taskName (TID $taskId)")
       killed = true
       if (task != null) {
@@ -267,6 +280,13 @@ private[spark] class Executor(
         logDebug("Task " + taskId + "'s epoch is " + task.epoch)
         env.mapOutputTracker.updateEpoch(task.epoch)
 
+        // TODO: Refactor
+        val cls = Utils.classForName("GetThreadID")
+        val obj = cls.newInstance()
+        val method = cls.getDeclaredMethod("get_tid")
+        val taskNID = method.invoke(obj)
+        println(s"Running $taskNID")
+
         // Run the actual task and measure its runtime.
         taskStart = System.currentTimeMillis()
         var threwException = true
@@ -302,6 +322,9 @@ private[spark] class Executor(
           }
         }
         val taskFinish = System.currentTimeMillis()
+
+        // TODO: Refactor
+        println(s"Finished $taskNID")
 
         // If the task has been killed, let's fail it.
         if (task.killed) {
